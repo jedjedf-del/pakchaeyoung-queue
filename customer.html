@@ -1,0 +1,96 @@
+
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>พัคแชยอง | ดูคิวออนไลน์</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#101010;color:#f3dfaa;font-family:system-ui,sans-serif;padding:20px}
+main{max-width:520px;margin:auto}
+h1{text-align:center;font-size:28px}
+.sub{text-align:center;color:#ccc}
+.card{border:1px solid #b99a50;border-radius:18px;padding:22px;margin:18px 0}
+.label{color:#ccc}
+.big{font-size:52px;font-weight:bold;margin:12px 0}
+.num{font-size:34px;font-weight:bold}
+.item{background:#242424;border-radius:12px;padding:15px;margin:9px 0}
+.status{background:#29251c;padding:14px;border-radius:12px;text-align:center}
+small{color:#aaa}
+</style>
+</head>
+<body>
+<main>
+<h1>♛ พัคแชยอง Hair Studio</h1>
+<p class="sub">ระบบตรวจสอบคิวออนไลน์</p>
+<div class="status" id="status">กำลังเชื่อมต่อ...</div>
+
+<div class="card">
+<div class="label">คิวที่กำลังให้บริการ</div>
+<div class="big" id="current">—</div>
+<div class="label">จำนวนคิวที่รอ</div>
+<div class="num" id="count">—</div>
+</div>
+
+<div class="card">
+<h2>รายการคิวที่รอ</h2>
+<div id="queue">กำลังโหลดข้อมูล...</div>
+</div>
+
+<p class="sub">รับบัตรคิวได้ที่หน้าร้านเท่านั้น</p>
+<p class="sub">เปิด 10:00–21:00 น. | หยุดวันจันทร์</p>
+<p class="sub"><small>เวลาและลำดับคิวอาจเปลี่ยนแปลงตามการให้บริการจริง</small></p>
+</main>
+
+<script type="module">
+import {initializeApp} from
+"https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+import {getFirestore,doc,onSnapshot} from
+"https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+
+const app=initializeApp({
+ projectId:"pakchaeyoung-queue"
+});
+const db=getFirestore(app);
+const el=id=>document.getElementById(id);
+const number=n=>String(n).padStart(3,"0");
+
+onSnapshot(doc(db,"shopQueue","main"),snap=>{
+ if(!snap.exists()){
+  el("status").textContent="ยังไม่มีข้อมูลคิว";
+  return;
+ }
+ const s=snap.data();
+ const today=new Date().toLocaleDateString("en-CA");
+ if(s.day!==today){
+  el("status").textContent="ยังไม่มีข้อมูลคิวของวันนี้";
+  el("current").textContent="—";
+  el("count").textContent="0";
+  el("queue").textContent="ยังไม่มีคิว";
+  return;
+ }
+ el("status").textContent=s.closed?"ปิดรับคิววันนี้":s.paused?"พักชั่วคราว":"เปิดรับคิว";
+ el("current").textContent=s.current==null?"—":number(s.current);
+ const items=Array.isArray(s.items)?s.items:[];
+ const waiting=items.filter(x=>x.state==="waiting")
+ .sort((a,b)=>(a.priority||0)-(b.priority||0)||a.n-b.n);
+ el("count").textContent=waiting.length;
+ el("queue").replaceChildren();
+ if(!waiting.length){
+  el("queue").textContent="ยังไม่มีคิวรอ";
+ }
+ for(const x of waiting){
+  const d=document.createElement("div");
+  d.className="item";
+  d.textContent="คิว "+number(x.n)+" — รอเรียก";
+  el("queue").appendChild(d);
+ }
+},err=>{
+ el("status").textContent="ยังอ่านข้อมูลคิวไม่ได้";
+ el("queue").textContent="กรุณาตรวจสอบการเชื่อมต่อและสิทธิ์ Firebase";
+ console.error(err);
+});
+</script>
+</body>
+</html>
