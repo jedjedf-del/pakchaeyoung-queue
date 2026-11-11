@@ -1,0 +1,66 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>พัคแชยอง | คิวออนไลน์</title><style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{background:#101010;color:#f3dfaa;font-family:system-ui,sans-serif;margin:0 auto;padding:18px;max-width:680px}h1{text-align:center;font-size:25px}button{background:#c9a653;color:#161616;border:0;border-radius:9px;padding:12px;margin:4px;font-size:15px;font-weight:bold;cursor:pointer}button:disabled{opacity:.4}button.secondary{background:#333;color:#f3dfaa;border:1px solid #a88a47}.card{border:1px solid #a88a47;border-radius:14px;padding:15px;margin:12px 0}small{color:#ddd}input,select{padding:11px;border-radius:8px;border:1px solid #a88a47;background:#252525;color:white;font-size:16px;max-width:100%}input{display:block;width:100%;margin:9px 0}p{line-height:1.5}.hidden{display:none!important}.status{padding:9px;border-radius:8px;background:#29251b}.warn{color:#ffd4a5}.row{display:flex;flex-wrap:wrap;align-items:center;gap:5px}.queueitem{border-bottom:1px solid #444;padding:9px 0}#notice{white-space:pre-wrap}
+</style></head><body><h1>♛ พัคแชยอง Hair Studio</h1><p style="text-align:center">ระบบจัดการคิว • จับเวลาตัดจริง • ซิงก์ข้อมูลผ่าน Firebase</p>
+<div class="card" id="login"><h2>เข้าสู่ระบบสำหรับร้าน</h2><p>ใช้บัญชีที่สร้างไว้ใน Firebase Authentication</p><label>อีเมล<input id="email" type="email" autocomplete="username" placeholder="อีเมล"></label><label>รหัสผ่าน<input id="password" type="password" autocomplete="current-password" placeholder="รหัสผ่าน"></label><button id="signin">เข้าสู่ระบบ</button><p><small>เฉพาะบัญชีที่ได้รับอนุญาตตามกฎ Firestore เท่านั้นที่จัดการคิวได้</small></p></div>
+<div id="notice" class="status">กำลังโหลดระบบ...</div>
+<div id="app" class="hidden">
+<div class="card"><h2 id="status">—</h2><div id="summary"></div><div id="timerInfo" class="status" style="margin:10px 0">เวลาตัดจริง: —</div><button id="issue">+ ออกบัตรคิว</button><button id="start">เรียกคิวถัดไป</button><button id="finish">ตัดเสร็จ</button><button id="skip">ข้ามคิว</button></div>
+<div class="card"><h3>ระยะเวลาคิวที่กำลังตัด</h3><select id="duration"><option>25</option><option selected>35</option><option>40</option><option>50</option></select> นาที <p><button id="pause">พักชั่วคราว</button><button id="resume">เปิดรับคิวต่อ</button><button id="closeDay">ปิดรับคิววันนี้</button></p></div>
+<div class="card"><h3>คิวรอ / คิวข้าม</h3><div id="queue"></div></div>
+<div class="card"><button id="backup" class="secondary">ดาวน์โหลดสำรองข้อมูลคิวออนไลน์</button><button id="reset" class="secondary">เริ่มวันใหม่ (รีเซ็ตเลขคิว)</button><button id="signout" class="secondary">ออกจากระบบ</button><p><small>ข้อมูลเดิมที่เก็บไว้ในเครื่องยังไม่ถูกย้ายหรือถูกลบ • อย่าเพิ่งใช้กับลูกค้าจริงจนกว่าจะทดสอบสองเครื่องสำเร็จ</small></p></div>
+</div>
+<script type="module">
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js';
+import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js';
+import {getFirestore,doc,onSnapshot,runTransaction} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js';
+const firebaseConfig={apiKey:'AIzaSyBHl0bgvwRxvp4tJkIoQiBD_tpSr6OTfao',authDomain:'pakchaeyoung-queue.firebaseapp.com',projectId:'pakchaeyoung-queue',storageBucket:'pakchaeyoung-queue.firebasestorage.app',messagingSenderId:'432679835961',appId:'1:432679835961:web:3a3b63d953b9d0757af0e8',measurementId:'G-C5GV1WPG2P'};
+const firebase=initializeApp(firebaseConfig),auth=getAuth(firebase),db=getFirestore(firebase);
+// ใช้เอกสารกลางหนึ่งฉบับสำหรับร้าน เพื่อไม่ชนกับเอกสารทดสอบเดิมใน collection queues
+const ref=doc(db,'shopQueue','main');
+const $=id=>document.getElementById(id);const today=()=>new Date().toLocaleDateString('en-CA');
+const blank=()=>({day:today(),next:1,items:[],current:null,paused:false,closed:false,pauseUntil:null});
+const num=n=>String(n).padStart(3,'0');const mins=ms=>Math.max(0,Math.ceil(ms/60000));let state=null,unsub=null,busy=false,connected=false;
+function notice(msg,bad=false){$('notice').textContent=msg;$('notice').className='status'+(bad?' warn':'')}
+function waiting(s){return s.items.filter(x=>x.state==='waiting').sort((a,b)=>(a.priority||0)-(b.priority||0)||a.n-b.n)}
+function updateTimer(){if(!state)return;const cur=state.items.find(x=>x.n===state.current);const el=$('timerInfo');if(!cur){el.textContent='เวลาตัดจริง: — | เวลารอโดยประมาณ: '+state.items.filter(x=>x.state==='waiting').reduce((a,x)=>a+(Number(x.minutes)||35),0)+' นาที';return;}const elapsed=cur.startedAt?mins(Date.now()-cur.startedAt):0;const remaining=Math.max(0,(Number(cur.minutes)||35)-elapsed);const queued=state.items.filter(x=>x.state==='waiting').reduce((a,x)=>a+(Number(x.minutes)||35),0);el.textContent='คิว '+num(cur.n)+' • ใช้ไป '+elapsed+' นาที / ตั้งไว้ '+cur.minutes+' นาที'+(elapsed>cur.minutes?' • เกิน '+(elapsed-cur.minutes)+' นาที':'')+' • คิวถัดไปคาดว่ารอ '+remaining+' นาที';}
+function render(){if(!state)return;const s=state;const cur=s.items.find(x=>x.n===s.current),w=waiting(s);
+$('status').textContent=s.closed?'ปิดรับคิววันนี้':s.paused?'พักชั่วคราว':'เปิดรับคิว';
+$('summary').textContent='กำลังตัด: '+(cur?num(cur.n):'—')+' | รอ '+w.length+' คิว'+(s.day!==today()?' | ข้อมูลวันที่ '+s.day:'');
+if(cur)$('duration').value=cur.minutes;updateTimer();
+$('queue').replaceChildren();const arr=s.items.filter(x=>['waiting','skipped'].includes(x.state));if(!arr.length){const t=document.createElement('small');t.textContent='ไม่มีคิวรอ';$('queue').append(t)}
+for(const x of arr){const p=document.createElement('div');p.className='queueitem';const label=document.createElement('span');label.textContent='คิว '+num(x.n)+' — '+(x.state==='skipped'?'ข้ามคิว':'รอ')+' ';p.append(label);
+const cancel=document.createElement('button');cancel.textContent='ยกเลิก';cancel.className='secondary';cancel.onclick=()=>{if(confirm('ยกเลิกคิว '+num(x.n)+'?'))act('cancel',x.n)};p.append(cancel);
+if(x.state==='skipped'){const restore=document.createElement('button');restore.textContent='กลับมาแล้ว';restore.onclick=()=>act('restore',x.n);p.append(restore)}$('queue').append(p)}
+for(const b of document.querySelectorAll('#app button'))b.disabled=busy||!connected;
+}
+async function act(type,arg){if(busy||!connected)return;busy=true;render();try{await runTransaction(db,async tx=>{
+const snap=await tx.get(ref);let s=snap.exists()?snap.data():blank();s=structuredClone(s);if(!Array.isArray(s.items))throw Error('ข้อมูลคิวไม่ถูกต้อง');
+if(s.day!==today()&&type!=='reset')throw Error('ข้อมูลเป็นวันก่อน กรุณาตรวจสอบแล้วกดเริ่มวันใหม่');
+const cur=()=>s.items.find(x=>x.n===s.current);
+switch(type){
+case 'issue':if(s.paused||s.closed)throw Error('กำลังพักหรือปิดรับคิว');s.items.push({n:s.next++,state:'waiting',minutes:35,created:Date.now()});break;
+case 'start':if(s.current!==null)throw Error('กรุณากดตัดเสร็จหรือข้ามคิวก่อน');{const x=waiting(s)[0];if(!x)throw Error('ไม่มีคิวรอ');x.state='serving';x.startedAt=Date.now();s.current=x.n;}break;
+case 'finish':{const x=cur();if(!x)throw Error('ยังไม่มีคิวที่กำลังตัด');x.state='done';x.finishedAt=Date.now();x.actualMinutes=x.startedAt?Math.max(0,Math.round((x.finishedAt-x.startedAt)/60000)):null;s.current=null;}break;
+case 'skip':{const x=cur();if(!x)throw Error('ยังไม่มีคิวที่กำลังตัด');x.state='skipped';s.current=null;}break;
+case 'restore':{const x=s.items.find(x=>x.n===arg&&x.state==='skipped');if(!x)throw Error('ไม่พบคิวข้าม');x.state='waiting';x.priority=-1;}break;
+case 'cancel':{const x=s.items.find(x=>x.n===arg);if(!x)throw Error('ไม่พบคิว');x.state='cancelled';if(s.current===arg)s.current=null;}break;
+case 'duration':{const x=cur();if(!x)throw Error('ยังไม่มีคิวที่กำลังตัด');x.minutes=arg;}break;
+case 'pause':s.paused=true;s.pauseUntil=Date.now()+arg*60000;break;
+case 'resume':s.paused=false;s.pauseUntil=null;break;
+case 'close':s.closed=true;break;
+case 'reset':s=blank();break;
+default:throw Error('คำสั่งไม่ถูกต้อง')}
+tx.set(ref,s);
+});notice('เชื่อมต่อแล้ว • บันทึกคิวสำเร็จ');}catch(e){notice('ทำรายการไม่สำเร็จ: '+e.message,true);alert('ทำรายการไม่สำเร็จ: '+e.message)}finally{busy=false;render()}}
+$('signin').onclick=async()=>{try{notice('กำลังเข้าสู่ระบบ...');await signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value);$('password').value='';}catch(e){notice('เข้าสู่ระบบไม่สำเร็จ: '+e.message,true)}};
+$('signout').onclick=()=>signOut(auth);
+$('issue').onclick=()=>act('issue');$('start').onclick=()=>act('start');$('finish').onclick=()=>act('finish');$('skip').onclick=()=>act('skip');
+$('duration').onchange=()=>{if(state?.current!==null)act('duration',Number($('duration').value))};
+$('pause').onclick=()=>{const v=prompt('คาดว่าจะพักกี่นาที?','60');if(v===null)return;const n=Number(v);if(!Number.isFinite(n)||n<1)return alert('กรุณาใส่จำนวนนาที');act('pause',n)};
+$('resume').onclick=()=>act('resume');$('closeDay').onclick=()=>{if(confirm('ปิดรับคิวใหม่สำหรับวันนี้?'))act('close')};
+$('reset').onclick=()=>{if(confirm('เริ่มวันใหม่และล้างคิวออนไลน์ทั้งหมด? โปรดดาวน์โหลดสำรองข้อมูลก่อน'))act('reset')};
+$('backup').onclick=()=>{if(!state)return;const b=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='pakchaeyoung-queue-backup-'+state.day+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),3000)};
+onAuthStateChanged(auth,user=>{if(unsub){unsub();unsub=null}connected=false;state=null;$('app').classList.add('hidden');$('login').classList.toggle('hidden',!!user);
+if(!user){notice('กรุณาเข้าสู่ระบบ');return}notice('กำลังเชื่อมต่อฐานข้อมูล...');unsub=onSnapshot(ref,snap=>{state=snap.exists()?snap.data():blank();connected=true;$('app').classList.remove('hidden');notice('เชื่อมต่อ Firebase แล้ว • '+user.email);render()},e=>{connected=false;$('app').classList.add('hidden');notice('ไม่สามารถอ่านคิวได้: '+e.message+'\nตรวจสอบสิทธิ์ Firestore Rules และบัญชีที่ล็อกอิน',true)})});
+setInterval(updateTimer,15000);
+</script></body></html>
