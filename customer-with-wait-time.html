@@ -69,7 +69,7 @@ function render(){
  const s=latest;
  if(!s)return;
  const today=new Date().toLocaleDateString("en-CA");
- if(s.day!==today){
+ if(!s.day){
   el("status").textContent="ยังไม่มีข้อมูลคิวของวันนี้";
   el("current").textContent="—";el("count").textContent="0";
   el("queue").textContent="ยังไม่มีคิว";el("timingStatus").textContent="";
