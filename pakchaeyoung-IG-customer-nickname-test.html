@@ -1,0 +1,155 @@
+
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IG ทดลอง • พัคแชยอง | ดูคิวออนไลน์</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#101010;color:#f3dfaa;font-family:system-ui,sans-serif;padding:20px}
+main{max-width:520px;margin:auto}
+h1{text-align:center;font-size:28px}
+.sub{text-align:center;color:#ccc}
+.card{border:1px solid #b99a50;border-radius:18px;padding:22px;margin:18px 0}
+.label{color:#ccc}
+.big{font-size:52px;font-weight:bold;margin:12px 0}
+.num{font-size:34px;font-weight:bold}
+.item{background:#242424;border-radius:12px;padding:15px;margin:9px 0}
+.waittime{color:#f3dfaa;font-size:23px;font-weight:700;margin-top:9px}
+.hint{color:#aaa;font-size:13px;margin-top:5px}
+.status{background:#29251c;padding:14px;border-radius:12px;text-align:center}
+small{color:#aaa}
+
+
+/* Instagram-inspired bright theme — presentation only; queue logic unchanged */
+:root{color-scheme:light!important;--pink:#f72585;--purple:#8224e3;--orange:#ff8a34;--ink:#29213f}
+html{min-height:100%;background:#fff7fb}
+body{background:radial-gradient(ellipse at 3% 2%,#ffd1ec 0%,transparent 42%),radial-gradient(ellipse at 100% 5%,#ffe3b3 0%,transparent 38%),linear-gradient(180deg,#fff7fc,#fff 65%,#fff4fb)!important;color:var(--ink)!important;font-family:system-ui,'Noto Sans Thai',sans-serif!important;min-height:100vh}
+h1{background:linear-gradient(110deg,#fc318f 7%,#fa6b43 47%,#9225e8 95%);color:#fff!important;border-radius:24px;padding:26px 12px 18px;margin:0 0 12px;box-shadow:0 12px 30px #e9428c35;text-shadow:0 2px 6px #8c225633;letter-spacing:.2px}
+h1+p,.sub{color:#695b79!important}
+.card{background:#ffffffed!important;border:1px solid #f6cce5!important;border-radius:24px!important;box-shadow:0 8px 28px #bf4b9220!important;padding:20px!important}
+h2,h3{color:#642b81!important}
+button{background:linear-gradient(110deg,#ff9b34,#f72e91 52%,#8c30e8)!important;color:white!important;border:0!important;border-radius:14px!important;padding:13px 15px!important;box-shadow:0 4px 12px #e5418d36!important;transition:filter .2s}
+button:disabled{opacity:.4!important;box-shadow:none!important}
+button.secondary{background:#f6edf8!important;color:#673e83!important;border:1px solid #edcce9!important;box-shadow:none!important}
+#issue{background:linear-gradient(115deg,#ff7c45,#fb297e)!important}
+#start{background:linear-gradient(115deg,#a932eb,#6834df)!important}
+#finish{background:linear-gradient(115deg,#15c77e,#08a86b)!important}
+#skip{background:linear-gradient(115deg,#8490a8,#59657d)!important}
+#status{color:#d82b83!important}
+.status{background:#fff0f9!important;border:1px solid #f6d1e7!important;color:#7b3169!important;border-radius:14px!important}
+.warn{color:#c32954!important}
+small,.label,.hint{color:#776c81!important}
+input,select{background:#fff!important;color:#362745!important;border:1px solid #e9b3d8!important;border-radius:12px!important}
+.queueitem{border-bottom:1px solid #f4d9e8!important}
+#summary{background:#fff0f9;border-radius:13px;padding:12px;font-weight:650;margin-top:10px}
+#duration{font-weight:800;color:#bf278a!important;border:2px solid #efb2d6!important}
+.big{font-size:clamp(76px,18vw,116px)!important;line-height:1.2;background:linear-gradient(115deg,#ff8a37,#f02b89 52%,#8d2bdf);background-clip:text;-webkit-background-clip:text;color:transparent!important;text-align:center;text-shadow:none!important}
+.num{color:#d32e8d!important}
+.item{background:linear-gradient(110deg,#fff0f9,#fff8f0)!important;border:1px solid #f9d8eb!important;border-radius:16px!important}
+.waittime{color:#bc2d91!important}
+#current{filter:drop-shadow(0 5px 10px #ef74ad25)}
+#count{font-size:38px!important}
+#timingStatus{margin-top:12px!important}
+@media(max-width:440px){body{padding:12px!important}h1{font-size:24px!important}.card{padding:17px!important}button{margin:4px 3px!important;font-size:14px!important}}
+
+
+.current-name{font-size:20px;font-weight:750;color:#b52a8a;text-align:center;margin:-4px 0 14px}.current-name:empty{display:none}
+</style>
+</head>
+<body>
+<main>
+<h1>♛ พัคแชยอง Hair Studio</h1>
+<p class="sub">ระบบตรวจสอบคิวออนไลน์</p>
+<div class="status" id="status">กำลังเชื่อมต่อ...</div>
+
+<div class="card">
+<div class="label">คิวที่กำลังให้บริการ</div>
+<div class="big" id="current">—</div><div class="current-name" id="currentName"></div>
+<div class="label">จำนวนคิวที่รอ</div>
+<div class="num" id="count">—</div>
+<div class="hint" id="timingStatus"></div>
+</div>
+
+<div class="card">
+<h2>รายการคิวที่รอ</h2>
+<div id="queue">กำลังโหลดข้อมูล...</div>
+</div>
+
+<p class="sub">รับบัตรคิวได้ที่หน้าร้านเท่านั้น</p>
+<p class="sub">เปิด 10:00–21:00 น. | หยุดวันจันทร์</p>
+<p class="sub"><small>เวลาและลำดับคิวอาจเปลี่ยนแปลงตามการให้บริการจริง</small></p>
+</main>
+
+<script type="module">
+import {initializeApp} from
+"https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+import {getFirestore,doc,onSnapshot} from
+"https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+
+const app=initializeApp({
+ projectId:"pakchaeyoung-queue"
+});
+const db=getFirestore(app);
+const el=id=>document.getElementById(id);
+const number=n=>String(n).padStart(3,"0");
+let latest=null;
+const minutesRemaining=x=>{
+ const duration=Number(x?.minutes)||35;
+ const start=Number(x?.startedAt);
+ if(!Number.isFinite(start)||start<=0)return duration;
+ return Math.max(0,duration-Math.floor((Date.now()-start)/60000));
+};
+function render(){
+ const s=latest;
+ if(!s)return;
+ const today=new Date().toLocaleDateString("en-CA");
+ if(!s.day){
+  el("status").textContent="ยังไม่มีข้อมูลคิวของวันนี้";
+  el("current").textContent="—";el("currentName").textContent="";el("count").textContent="0";
+  el("queue").textContent="ยังไม่มีคิว";el("timingStatus").textContent="";
+  return;
+ }
+ el("status").textContent=s.closed?"ปิดรับคิววันนี้":s.paused?"พักชั่วคราว":"เปิดรับคิว";
+ el("current").textContent=s.current==null?"—":number(s.current);
+ const items=Array.isArray(s.items)?s.items:[];
+ const waiting=items.filter(x=>x.state==="waiting")
+  .sort((a,b)=>(a.priority||0)-(b.priority||0)||a.n-b.n);
+ el("count").textContent=waiting.length;
+ const current=items.find(x=>x.n===s.current);
+ el("currentName").textContent=current?.nickname?"ชื่อเล่น: "+current.nickname:"";
+ const overdue=!!(current?.startedAt && Date.now()-Number(current.startedAt)>(Number(current.minutes)||35)*60000);
+ el("timingStatus").textContent=s.paused?"ร้านกำลังพัก • เวลารออาจเพิ่มขึ้น":overdue?"คิวปัจจุบันใช้เวลาเกินประมาณการ • เวลารออาจเพิ่มขึ้น":"เวลารอเป็นเพียงการประมาณการ";
+ el("queue").replaceChildren();
+ if(!waiting.length)el("queue").textContent="ยังไม่มีคิวรอ";
+ let ahead=current?minutesRemaining(current):0;
+ for(const x of waiting){
+  const d=document.createElement("div");d.className="item";
+  const title=document.createElement("div");title.textContent="คิว "+number(x.n)+(x.nickname?" • "+x.nickname:"")+" — รอเรียก";
+  const time=document.createElement("div");time.className="waittime";
+  time.textContent=(s.paused?"อย่างน้อยประมาณ ":"ประมาณ ")+ahead+" นาที";
+  const hint=document.createElement("div");hint.className="hint";
+  hint.textContent=s.paused?"กำลังพัก เวลารอจริงอาจนานขึ้น":overdue?"คิวปัจจุบันเกินเวลาแล้ว อาจต้องรอนานขึ้น":"เวลารอโดยประมาณ • ปรับทุก 1 นาที";
+  d.append(title,time,hint);el("queue").appendChild(d);
+  ahead+=Number(x.minutes)||35;
+ }
+}
+setInterval(render,15000);
+
+onSnapshot(doc(db,"shopQueue","main"),snap=>{
+ if(!snap.exists()){
+  latest=null;el("status").textContent="ยังไม่มีข้อมูลคิว";
+  el("current").textContent="—";el("currentName").textContent="";el("count").textContent="0";
+  el("queue").textContent="ยังไม่มีคิว";el("currentName").textContent="";return;
+ }
+ latest=snap.data();render();
+},err=>{
+ latest=null;
+ el("status").textContent="ยังอ่านข้อมูลคิวไม่ได้";
+ el("queue").textContent="กรุณาตรวจสอบการเชื่อมต่อและสิทธิ์ Firebase";
+ console.error(err);
+});
+</script>
+</body>
+</html>
