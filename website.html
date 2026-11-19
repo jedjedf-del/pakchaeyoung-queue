@@ -95,3 +95,63 @@ footer{text-align:center;background:#f7eaf1;padding:25px;color:#785e70}
 </body>
 </html>
 
+<style>
+.pak-gallery {
+  padding: 28px 16px 40px;
+  background: #fff8f6;
+  font-family: Tahoma, sans-serif;
+  text-align: center;
+}
+.pak-gallery h2 { color: #493744; }
+.pak-gallery p { color: #907a88; }
+.pak-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  max-width: 850px;
+  margin: 20px auto;
+}
+.pak-item {
+  background: white;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px #d9b9c744;
+}
+.pak-image {
+  aspect-ratio: 4 / 5;
+  background: linear-gradient(
+    135deg,#ffe7d8,#f8d9eb,#e5ddff
+  );
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 42px;
+}
+.pak-item b {
+  display: block;
+  padding: 13px 5px;
+  color: #76536e;
+}
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const gallery = document.createElement("section");
+  gallery.className = "pak-gallery";
+  gallery.innerHTML = `
+    <h2>✂️ ไอเดียทรงผมเกาหลี</h2>
+    <p>เลือกทรงที่ชอบได้เลยครับ</p>
+    <div class="pak-grid">
+      <div class="pak-item"><div class="pak-image">✂️</div><b>Two Block</b></div>
+      <div class="pak-item"><div class="pak-image">✂️</div><b>Comma Hair</b></div>
+      <div class="pak-item"><div class="pak-image">✂️</div><b>Mullet</b></div>
+      <div class="pak-item"><div class="pak-image">✂️</div><b>Drop Cut</b></div>
+      <div class="pak-item"><div class="pak-image">✂️</div><b>Vintage</b></div>
+      <div class="pak-item"><div class="pak-image">✂️</div><b>รองทรง</b></div>
+    </div>
+    <p>เตรียมเพิ่มรูปผลงานจริงของร้าน</p>
+  `;
+  document.querySelector("footer").before(gallery);
+});
+</script>
+
