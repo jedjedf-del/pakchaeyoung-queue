@@ -37,13 +37,14 @@ function render(){
   return;
  }
  el("status").textContent=s.closed?"ปิดรับคิววันนี้":s.paused?"พักชั่วคราว":"เปิดรับคิว";
- el("current").textContent=s.current==null?"—":number(s.current);
+
  const items=Array.isArray(s.items)?s.items:[];
  const waiting=items.filter(x=>x.state==="waiting")
   .sort((a,b)=>(a.priority||0)-(b.priority||0)||a.n-b.n);
  el("count").textContent=waiting.length;
  const current=items.find(x=>x.n===s.current);
- el("currentName").textContent=current?.nickname?"ชื่อเล่น: "+current.nickname:"";
+ el("current").textContent=current?number(current.ticket ?? current.n):"—";
+ el("currentName").textContent=current?"รอบ "+(current.round ?? 1)+(current.nickname?" • "+current.nickname:""):"";
  const overdue=!!(current?.startedAt && Date.now()-Number(current.startedAt)>(Number(current.minutes)||35)*60000);
  el("timingStatus").textContent=s.paused?"ร้านกำลังพัก • เวลารออาจเพิ่มขึ้น":overdue?"คิวปัจจุบันใช้เวลาเกินประมาณการ • เวลารออาจเพิ่มขึ้น":"เวลารอเป็นเพียงการประมาณการ";
  el("queue").replaceChildren();
@@ -51,7 +52,7 @@ function render(){
  let ahead=current?minutesRemaining(current):0;
  for(const x of waiting){
   const d=document.createElement("div");d.className="item";
-  const title=document.createElement("div");title.textContent="คิว "+number(x.n)+(x.nickname?" • "+x.nickname:"")+" — รอเรียก";
+  const title=document.createElement("div");title.textContent="คิว "+number(x.ticket ?? x.n)+" • รอบ "+(x.round ?? 1)+(x.nickname?" • "+x.nickname:"")+" — รอเรียก";
   const time=document.createElement("div");time.className="waittime";
   time.textContent=(s.paused?"อย่างน้อยประมาณ ":"ประมาณ ")+ahead+" นาที";
   const hint=document.createElement("div");hint.className="hint";

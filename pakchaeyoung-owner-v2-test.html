@@ -40,7 +40,7 @@ input,select{background:#fff!important;color:#362745!important;border:1px solid 
 <div class="card" id="login"><h2>เข้าสู่ระบบสำหรับร้าน</h2><p>ใช้บัญชีที่สร้างไว้ใน Firebase Authentication</p><label>อีเมล<input id="email" type="email" autocomplete="username" placeholder="อีเมล"></label><label>รหัสผ่าน<input id="password" type="password" autocomplete="current-password" placeholder="รหัสผ่าน"></label><button id="signin">เข้าสู่ระบบ</button><p><small>เฉพาะบัญชีที่ได้รับอนุญาตตามกฎ Firestore เท่านั้นที่จัดการคิวได้</small></p></div>
 <div id="notice" class="status">กำลังโหลดระบบ...</div>
 <div id="app" class="hidden">
-<div class="card"><div id="dateLabel" class="status" style="margin-bottom:12px;font-weight:750">วันที่: กำลังโหลด...</div><h2 id="status">—</h2><div id="summary"></div><div id="timerInfo" class="status" style="margin:10px 0">เวลาตัดจริง: —</div><div class="nickname-entry"><label for="nickname">ชื่อเล่นลูกค้า (ไม่บังคับ)</label><input id="nickname" maxlength="24" autocomplete="off" placeholder="เช่น บอส, ต้น, นัท"><small>ชื่อเล่นจะแสดงบนหน้าดูคิวของลูกค้าด้วย • ไม่ควรใส่ชื่อจริงหรือเบอร์โทร</small></div><button id="issue">+ ออกบัตรคิว</button><button id="start">เรียกคิวถัดไป</button><button id="finish">ตัดเสร็จ</button><button id="skip">ข้ามคิว</button></div>
+<div class="card"><div id="dateLabel" class="status" style="margin-bottom:12px;font-weight:750">วันที่: กำลังโหลด...</div><h2 id="status">—</h2><div id="summary"></div><div id="timerInfo" class="status" style="margin:10px 0">เวลาตัดจริง: —</div><div class="nickname-entry"><label for="nickname">ชื่อเล่นลูกค้า (ไม่บังคับ)</label><input id="nickname" maxlength="24" autocomplete="off" placeholder="เช่น บอส, ต้น, นัท"><small>ชื่อเล่นจะแสดงบนหน้าดูคิวของลูกค้าด้วย • ไม่ควรใส่ชื่อจริงหรือเบอร์โทร</small></div><div id="roundInfo" class="status"></div><button id="newRound" class="secondary">เริ่มรอบใหม่</button><button id="issue">+ ออกบัตรคิว</button><button id="start">เรียกคิวถัดไป</button><button id="finish">ตัดเสร็จ</button><button id="skip">ข้ามคิว</button></div>
 <div class="card"><h3>ระยะเวลาตัดผม</h3><p><small>เลือกเวลาก่อนออกบัตรคิวใหม่ หรือเปลี่ยนเวลาคิวที่กำลังตัดได้</small></p><select id="duration"><option>25</option><option selected>35</option><option>40</option><option>50</option></select> นาที <p><button id="pause">พักชั่วคราว</button><button id="resume">เปิดรับคิวต่อ</button><button id="closeDay">ปิดรับคิววันนี้</button></p></div>
 <div class="card"><h3>คิวรอ / คิวข้าม</h3><div id="queue"></div></div>
 <div class="card"><button id="backup" class="secondary">ดาวน์โหลดสำรองข้อมูลคิวออนไลน์</button><button id="reset" class="secondary">เริ่มวันใหม่ (รีเซ็ตเลขคิว)</button><button id="signout" class="secondary">ออกจากระบบ</button><p><small>ข้อมูลเดิมที่เก็บไว้ในเครื่องยังไม่ถูกย้ายหรือถูกลบ • อย่าเพิ่งใช้กับลูกค้าจริงจนกว่าจะทดสอบสองเครื่องสำเร็จ</small></p></div>
@@ -57,15 +57,22 @@ const $=id=>document.getElementById(id);const today=()=>new Intl.DateTimeFormat(
 const blank=()=>({day:today(),next:1,items:[],current:null,paused:false,closed:false,pauseUntil:null});
 const num=n=>String(n).padStart(3,'0');const mins=ms=>Math.max(0,Math.ceil(ms/60000));let state=null,unsub=null,busy=false,connected=false;
 function notice(msg,bad=false){$('notice').textContent=msg;$('notice').className='status'+(bad?' warn':'')}
+function nextTicket(s) {
+ return s.next - (s.roundStart ?? 1) + 1;
+}
+function ticketLabel(x) {
+ return (x.ticket ?? x.n) + ' (รอบ ' + (x.round ?? 1) + ' • คนที่ ' + x.n + ' ของวัน)';
+}
 function waiting(s){return s.items.filter(x=>x.state==='waiting').sort((a,b)=>(a.priority||0)-(b.priority||0)||a.n-b.n)}
-function updateTimer(){if(!state)return;const cur=state.items.find(x=>x.n===state.current);const el=$('timerInfo');if(!cur){el.textContent='เวลาตัดจริง: — | เวลารอโดยประมาณ: '+state.items.filter(x=>x.state==='waiting').reduce((a,x)=>a+(Number(x.minutes)||35),0)+' นาที';return;}const elapsed=cur.startedAt?mins(Date.now()-cur.startedAt):0;const remaining=Math.max(0,(Number(cur.minutes)||35)-elapsed);const queued=state.items.filter(x=>x.state==='waiting').reduce((a,x)=>a+(Number(x.minutes)||35),0);el.textContent='คิว '+num(cur.n)+' • ใช้ไป '+elapsed+' นาที / ตั้งไว้ '+cur.minutes+' นาที'+(elapsed>cur.minutes?' • เกิน '+(elapsed-cur.minutes)+' นาที':'')+' • คิวถัดไปคาดว่ารอ '+remaining+' นาที';}
+function updateTimer(){if(!state)return;const cur=state.items.find(x=>x.n===state.current);const el=$('timerInfo');if(!cur){el.textContent='เวลาตัดจริง: — | เวลารอโดยประมาณ: '+state.items.filter(x=>x.state==='waiting').reduce((a,x)=>a+(Number(x.minutes)||35),0)+' นาที';return;}const elapsed=cur.startedAt?mins(Date.now()-cur.startedAt):0;const remaining=Math.max(0,(Number(cur.minutes)||35)-elapsed);const queued=state.items.filter(x=>x.state==='waiting').reduce((a,x)=>a+(Number(x.minutes)||35),0);el.textContent='คิว '+ticketLabel(cur)+' • ใช้ไป '+elapsed+' นาที / ตั้งไว้ '+cur.minutes+' นาที'+(elapsed>cur.minutes?' • เกิน '+(elapsed-cur.minutes)+' นาที':'')+' • คิวถัดไปคาดว่ารอ '+remaining+' นาที';}
 function render(){if(!state)return;const s=state;const cur=s.items.find(x=>x.n===s.current),w=waiting(s);
 $('dateLabel').textContent='วันที่ข้อมูลคิว: '+s.day+' (เวลาไทย)'+(s.day!==today()?' • ข้อมูลวันก่อน โปรดสำรองและเริ่มวันใหม่':'');$('status').textContent=s.closed?'ปิดรับคิววันนี้':s.paused?'พักชั่วคราว':'เปิดรับคิว';
-$('summary').textContent='กำลังตัด: '+(cur?num(cur.n)+(cur.nickname?' • '+cur.nickname:''):'—')+' | รอ '+w.length+' คิว'+(s.day!==today()?' | ข้อมูลวันที่ '+s.day:'');
+$('roundInfo').textContent='รอบ '+(s.round ?? 1)+' • บัตรถัดไป '+nextTicket(s)+' • คนที่ '+s.next+' ของวัน';
+$('summary').textContent='กำลังตัด: '+(cur?ticketLabel(cur)+(cur.nickname?' • '+cur.nickname:''):'—')+' | รอ '+w.length+' คิว'+(s.day!==today()?' | ข้อมูลวันที่ '+s.day:'');
 if(cur && document.activeElement!==$('duration'))$('duration').value=cur.minutes;updateTimer();
 $('queue').replaceChildren();const arr=s.items.filter(x=>['waiting','skipped'].includes(x.state));if(!arr.length){const t=document.createElement('small');t.textContent='ไม่มีคิวรอ';$('queue').append(t)}
-for(const x of arr){const p=document.createElement('div');p.className='queueitem';const label=document.createElement('span');label.textContent='คิว '+num(x.n)+' — '+(x.state==='skipped'?'ข้ามคิว':'รอ')+(x.nickname?' • '+x.nickname:'')+' ';p.append(label);
-const cancel=document.createElement('button');cancel.textContent='ยกเลิก';cancel.className='secondary';cancel.onclick=()=>{if(confirm('ยกเลิกคิว '+num(x.n)+'?'))act('cancel',x.n)};p.append(cancel);
+for(const x of arr){const p=document.createElement('div');p.className='queueitem';const label=document.createElement('span');label.textContent='คิว '+ticketLabel(x)+' — '+(x.state==='skipped'?'ข้ามคิว':'รอ')+(x.nickname?' • '+x.nickname:'')+' ';p.append(label);
+const cancel=document.createElement('button');cancel.textContent='ยกเลิก';cancel.className='secondary';cancel.onclick=()=>{if(confirm('ยกเลิกคิว '+ticketLabel(x)+'?'))act('cancel',x.n)};p.append(cancel);
 if(x.state==='skipped'){const restore=document.createElement('button');restore.textContent='กลับมาแล้ว';restore.onclick=()=>act('restore',x.n);p.append(restore)}$('queue').append(p)}
 for(const b of document.querySelectorAll('#app button'))b.disabled=busy||!connected;
 }
@@ -74,7 +81,13 @@ const snap=await tx.get(ref);let s=snap.exists()?snap.data():blank();s=structure
 if(s.day!==today()&&type!=='reset')throw Error('ข้อมูลเป็นวันก่อน กรุณาตรวจสอบแล้วกดเริ่มวันใหม่');
 const cur=()=>s.items.find(x=>x.n===s.current);
 switch(type){
-case 'issue':{const duration=Number(arg?.minutes),nickname=String(arg?.nickname||'').trim().slice(0,24);if(![25,35,40,50].includes(duration))throw Error('เวลาไม่ถูกต้อง');if(s.paused||s.closed)throw Error('กำลังพักหรือปิดรับคิว');s.items.push({n:s.next++,state:'waiting',minutes:duration,nickname,created:Date.now()});break;}
+case 'newRound':
+ if ((s.round ?? 1) === arg) {
+  s.round = arg + 1;
+  s.roundStart = s.next;
+ }
+ break;
+case 'issue':{const duration=Number(arg?.minutes),nickname=String(arg?.nickname||'').trim().slice(0,24);if(![25,35,40,50].includes(duration))throw Error('เวลาไม่ถูกต้อง');if(s.paused||s.closed)throw Error('กำลังพักหรือปิดรับคิว');const ticket=nextTicket(s);s.items.push({ticket,round:s.round ?? 1,n:s.next++,state:'waiting',minutes:duration,nickname,created:Date.now()});break;}
 case 'start':if(s.current!==null)throw Error('กรุณากดตัดเสร็จหรือข้ามคิวก่อน');{const x=waiting(s)[0];if(!x)throw Error('ไม่มีคิวรอ');x.state='serving';x.startedAt=Date.now();s.current=x.n;}break;
 case 'finish':{const x=cur();if(!x)throw Error('ยังไม่มีคิวที่กำลังตัด');x.state='done';x.finishedAt=Date.now();x.actualMinutes=x.startedAt?Math.max(0,Math.round((x.finishedAt-x.startedAt)/60000)):null;s.current=null;}break;
 case 'skip':{const x=cur();if(!x)throw Error('ยังไม่มีคิวที่กำลังตัด');x.state='skipped';s.current=null;}break;
@@ -90,6 +103,10 @@ tx.set(ref,s);
 });if(type==='issue')$('nickname').value='';notice('เชื่อมต่อแล้ว • บันทึกคิวสำเร็จ');}catch(e){notice('ทำรายการไม่สำเร็จ: '+e.message,true);alert('ทำรายการไม่สำเร็จ: '+e.message)}finally{busy=false;render()}}
 $('signin').onclick=async()=>{try{notice('กำลังเข้าสู่ระบบ...');await signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value);$('password').value='';}catch(e){notice('เข้าสู่ระบบไม่สำเร็จ: '+e.message,true)}};
 $('signout').onclick=()=>signOut(auth);
+$('newRound').onclick=()=>{
+ const round=state.round ?? 1;
+ if(confirm('เริ่มรอบ '+(round+1)+' ที่บัตรเลข 1? คิวเดิมยังอยู่ตามลำดับ'))act('newRound',round);
+};
 $('issue').onclick=async()=>{const nickname=$('nickname').value.trim();await act('issue',{minutes:Number($('duration').value),nickname});};$('start').onclick=()=>act('start');$('finish').onclick=()=>act('finish');$('skip').onclick=()=>act('skip');
 $('duration').onchange=()=>{if(state?.current!=null)act('duration',Number($('duration').value))};
 $('pause').onclick=()=>{const v=prompt('คาดว่าจะพักกี่นาที?','60');if(v===null)return;const n=Number(v);if(!Number.isFinite(n)||n<1)return alert('กรุณาใส่จำนวนนาที');act('pause',n)};
